@@ -1,9 +1,10 @@
 from google.adk.agents import Agent
+from google.adk.tools import FunctionTool
 
 root_agent = Agent(
     name="greeting_agent",
     # https://ai.google.dev/gemini-api/docs/models
-    model="gemini-2.5-flash",
+    model="gemini-2.0-flash",
     description="Greeting agent",
     instruction="""
     Your name is Rico! You are friendly and funny assistant. You always ask the users name and then 

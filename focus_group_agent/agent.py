@@ -1,6 +1,9 @@
-from google.adk.agents import Agent, ParallelAgent
+from google.adk.agents import Agent, ParallelAgent, SequentialAgent
+from google.adk.tools import FunctionTool
+# The correct import based on your working pattern
+from utils.focus_group_utils import write_json_data
 
-MODEL = "gemini-2.5-flash"
+MODEL = "gemini-2.0-flash"
 
 # Persona: Sami Davis, The Weekend Warrior
 sami_davis = Agent(
@@ -95,8 +98,32 @@ brenda_white = Agent(
 )
 
 # The orchestrator that runs all persona agents concurrently
-root_agent = ParallelAgent(
-    name="focus_group_agent",
+# Parallel agent to run the focus group
+focus_group_agent = ParallelAgent(
+    name="DockBloxxFocusGroup",
     description="A focus group of diverse personas to critique a product or ad.",
     sub_agents=[sami_davis, mark_johnson, lila_chen, greg_evans, chloe_patterson, alex_rodriguez, brenda_white],
+)
+
+# Create the tool by wrapping the function
+json_writer_tool = FunctionTool(func=write_json_data)
+
+# Agent to collect the raw outputs and write them to a JSON file
+json_writer_agent = Agent(
+    model=MODEL, # This is an LLM agent, so it needs a model
+    name="JsonWriterAgent",
+    description="Collects raw agent opinions and writes them to a JSON file.",
+    instruction="""You have received the opinions from a focus group. Your task is to format the opinions into a single JSON object. 
+    The JSON object should have a key for each persona's opinion.
+    Then, use the `json_writer` tool to save this JSON object to a file.
+    """,
+    tools=[json_writer_tool],
+    output_key="json_file_path",
+)
+
+# The new root agent that orchestrates the entire sequential workflow
+root_agent = SequentialAgent(
+    name="DataCollector",
+    description="Gathers focus group opinions in parallel and saves them to a JSON file.",
+    sub_agents=[focus_group_agent, json_writer_agent],
 )
