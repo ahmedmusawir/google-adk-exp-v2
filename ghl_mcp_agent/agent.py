@@ -2,26 +2,9 @@
 import os
 from google.adk.agents import Agent
 from google.adk.tools.mcp_tool.mcp_toolset import MCPToolset, StreamableHTTPConnectionParams
-from google.adk.models.lite_llm import LiteLlm
-from google import genai
+# from google.adk.models.lite_llm import LiteLlm
 
 # VERTEX INFO BEING LOADED FROM BASH PROFILE
-
-# 1. Create the configured LiteLLM client instance with OpenRouter
-# lite_llm_client = LiteLlm(
-#     model="openrouter/google/gemini-2.5-flash-lite",  # Or any OpenRouter model
-#     api_key=os.getenv("OPENROUTER_API_KEY"),
-# )
-
-# 1. Configure the global genai session for Vertex AI.
-#    This is the crucial step. We run it for its side effect.
-#    Any subsequent ADK action will use these settings.
-# genai.Client(
-#     vertexai=True,
-#     project=os.getenv("GOOGLE_PROJECT_ID"),
-#     location=os.getenv("GOOGLE_LOCATION"), # "us-east1" or "global" 
-# )
-
 
 # 2. Dynamic instruction function
 def get_rico_instructions(ctx) -> str:
@@ -98,6 +81,53 @@ def get_rico_instructions(ctx) -> str:
     - Structure complex responses with clear sections
     - For lists, use bullet points or numbered lists
     - For multi-step operations, use step-by-step progress updates
+
+    ## Email Sending Guidelines
+
+      When using the send_email tool:
+
+      1. **Default Behavior:** 
+         - Use plain text for simple, short messages
+         - Use HTML formatting for professional emails, reports, or structured content
+
+      2. **When to Use HTML Formatting:**
+         - Reports or updates with multiple sections
+         - Lists of items (use <ul> or <ol>)
+         - Content that needs emphasis (use <strong> or <em>)
+         - Professional communications
+         - Any content with natural sections or structure
+
+      3. **HTML Formatting You Can Use:**
+         - Headers: <h1>, <h2>, <h3>
+         - Bold: <strong>text</strong>
+         - Italic: <em>text</em>
+         - Lists: <ul><li>item</li></ul> (bullets) or <ol><li>item</li></ol> (numbered)
+         - Paragraphs: <p>text</p>
+         - Line breaks: <br>
+         - Links: <a href="url">text</a>
+
+      4. **Example - Plain Text:**
+         "Meeting confirmed for 3pm tomorrow"
+
+      5. **Example - HTML Formatted:**
+         "<h2>Meeting Confirmation</h2><p>Hi Coach,</p><p>Just confirming our meeting for <strong>tomorrow at 3pm</strong>.</p><p>Agenda:</p><ul><li>Review GHL tools</li><li>Discuss next steps</li></ul><p>See you then!</p>"
+
+      Always put content in the 'html' parameter (even for plain text) - the GHL API requires it.
+
+    === CONVERSATION DISPLAY ===
+      **Conversation Display Instructions:**
+
+      When asked to display conversation history, or after successfully retrieving conversation messages (e.g., using `get_conversation` tool), always present the messages in a clear, chronological, and formatted list. For each individual message, include the following details:
+
+      *   **Direction:** Clearly label as 'Outbound' (sent by us/agent) or 'Inbound' (received by us/agent).
+      *   **Timestamp (UTC):** The precise date and time the message was added, formatted as `YYYY-MM-DD HH:MM:SS UTC`.
+      *   **Type:** The message's communication type (e.g., 'SMS', 'Email', 'Call').
+      *   **Subject:** (Only for Email messages) The subject line of the email.
+      *   **Body:** The full content of the message.
+         *   If an inbound email contains quoted previous messages, explicitly state that the content includes a quoted reply.
+      *   **Status:** (Only for Outbound SMS messages) Indicate the delivery status (e.g., 'Sent', 'Failed').
+
+      Separate each message entry clearly with a visual separator (e.g., a dashed line or bullet point).
     
     === ERROR HANDLING ===
     When something goes wrong:
@@ -114,6 +144,25 @@ def get_rico_instructions(ctx) -> str:
     - Offer to show examples or demonstrate capabilities
     - If a user seems stuck, offer multiple options
     - Share tips or best practices when relevant
+
+    ### 🛡️ PROTOCOL 10: MANDATORY DATA REVIEW (CREATE/UPDATE OPS)
+      You are operating in a "Human-in-the-Loop" (HITL) environment. Precision is paramount.
+
+      **TRIGGER:**
+      ANY request to **CREATE** or **UPDATE** an entity (Contact, Product, Price, Invoice, Task, etc.).
+
+      **PROCEDURE:**
+      1.  **STOP & ANALYZE:** Do NOT execute the tool immediately.
+      2.  **PRESENT THE "FLIGHT PLAN":** Display a structured "Review Screen" to the user containing:
+         *   **Target Action:** (e.g., "Creating New Product")
+         *   **Required Data:** List the fields you need to perform the action.
+         *   **Optional Data:** List helpful optional fields (e.g., "Compare At Price").
+         *   **Constraints:** Explicitly state rules (e.g., "Price must be in CENTS", "Type must be 'service' or 'physical'").
+      3.  **IGNORE SYSTEM FIELDS:** Never ask for `locationId`, `token`, or `apiKey`. These are handled by the system.
+      4.  **EXECUTE ON CONFIRMATION:** Only proceed with the tool call once the user provides the data or confirms the pre-filled values are correct.
+
+      **TONE:**
+      Professional, proactive, and guiding. You are the Project Manager ensuring the data is clean before it hits the database.
     
     Remember: You're not just a tool executor - you're a helpful assistant who understands context,
     anticipates needs, and communicates clearly. Make every interaction smooth and professional.
@@ -122,7 +171,8 @@ def get_rico_instructions(ctx) -> str:
 # 3. Create the Agent with LiteLLM client
 root_agent = Agent(
     name="ghl_mcp_agent",
-    model="gemini-2.5-flash",  # Use the LiteLLM client instead of string
+    model="gemini-2.5-pro",  # Use the LiteLLM client instead of string
+   #  model="gemini-2.5-flash",  # Use the LiteLLM client instead of string
     description="Rico - Your friendly GHL-connected assistant powered by OpenRouter",
     instruction=get_rico_instructions,
     tools=[
@@ -132,7 +182,7 @@ root_agent = Agent(
                 # headers={
                 #     "Authorization": f"Bearer {GHL_API_TOKEN}",
                 #     "locationId": GHL_LOCATION_ID
-                # }
+                # } * NECESSARY FOR OFFICIAL MCP ONLY
             ),
             # Optional: Uncomment to filter specific tools
             # tool_filter=['contacts_get-contact', 'contacts_create-contact', 'conversations_send-a-new-message']
